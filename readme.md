@@ -8,4 +8,5 @@ Contains a number of different examples of Hibernate mappings and queries, such 
  * Using the "between" keyword
 
 The project is built using Maven, and test up an HSQLDB to run. Hence, if you have maven installed, to run the examples just type:
+
     mvn test
