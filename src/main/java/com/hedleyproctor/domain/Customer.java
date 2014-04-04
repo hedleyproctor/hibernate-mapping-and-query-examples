@@ -1,15 +1,12 @@
 package com.hedleyproctor.domain;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.ManyToOne;
+import javax.persistence.*;
 
 import org.hibernate.annotations.JoinColumnOrFormula;
 import org.hibernate.annotations.JoinColumnsOrFormulas;
 import org.hibernate.annotations.JoinFormula;
+
+import java.util.Set;
 
 @Entity
 public class Customer {
@@ -20,6 +17,8 @@ public class Customer {
 	private Long accountId;
 	private Long partnerId;
 	private UserAccount userAccount;
+
+    private Set<Order> orders;
 	
 	@Id
 	@GeneratedValue(strategy = GenerationType.AUTO)
@@ -68,6 +67,12 @@ public class Customer {
 		this.userAccount = userAccount;
 	}
 
-	
-	
+    @OneToMany(mappedBy = "customer")
+    public Set<Order> getOrders() {
+        return orders;
+    }
+
+    public void setOrders(Set<Order> orders) {
+        this.orders = orders;
+    }
 }

@@ -1,10 +1,6 @@
 package com.hedleyproctor.domain;
 
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.Table;
+import javax.persistence.*;
 
 @Entity
 @Table(name = "orders")
@@ -12,6 +8,7 @@ public class Order {
 	private Long id;
 	
 	private Double orderTotal;
+    private Customer customer;
 	
 	@Id
 	@GeneratedValue(strategy = GenerationType.AUTO)
@@ -30,6 +27,13 @@ public class Order {
 	public void setOrderTotal(Double orderTotal) {
 		this.orderTotal = orderTotal;
 	}
-	
-	
+
+    @ManyToOne
+    public Customer getCustomer() {
+        return customer;
+    }
+
+    public void setCustomer(Customer customer) {
+        this.customer = customer;
+    }
 }
