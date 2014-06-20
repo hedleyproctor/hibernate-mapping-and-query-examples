@@ -1,11 +1,10 @@
 package com.hedleyproctor;
 
 import com.hedleyproctor.domain.*;
-import org.hibernate.Query;
-import org.hibernate.Session;
-import org.hibernate.SessionFactory;
-import org.hibernate.Transaction;
+import com.hedleyproctor.domain.Order;
+import org.hibernate.*;
 import org.hibernate.cfg.Configuration;
+import org.hibernate.criterion.*;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
@@ -16,6 +15,7 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import static org.testng.Assert.assertEquals;
@@ -244,5 +244,144 @@ public class Tests {
         // making the asserts, since if the assert fails it won't close the db.
         tx.commit();
         session.close();
+    }
+
+    /**
+     * Although subqueries are allowed in both HQL and Criteria, they can only be used in the select or where
+     * clauses, not in the the from expression. However, for simple subqueries, you may be able to rewrite
+     * the query as a correlated subquery.
+     *
+     * Each record is a user message, with a user id, message string, date and hnumber (message type).
+     * We want to find the most recent message of each distinct message type for a given user, id 14.
+     * The most natural way to do this is first doing a subquery that selects the max timestamp messages, grouped on id and hnumber,
+     * then simply join to this subquery. However, this join would not be allowed in HQL, so you can rewrite it as a
+     * correlated subquery.
+     *
+     * @throws ParseException
+     */
+    @Test
+    public void hqlWithCorrelatedSubquery() throws ParseException {
+        System.out.println("Running HQL with correlated subquery");
+         // create test data
+        UserMessage userMessage1 = new UserMessage(14L,"xyz1",new Date(1394607463000L),"0429c3866c19981fc276855ff3cdaf100e0c9fdb");
+        UserMessage userMessage2 = new UserMessage(14L,"xyz2",new Date(1394608378000L),"0429c3866c19981fc276855ff3cdaf100e0c9fdb");
+        UserMessage userMessage3 = new UserMessage(14L,"xyz1",new Date(1394453678000L),"0429c3866c19981fc276855ff3cdaf100e0c9fdb");
+        UserMessage userMessage4 = new UserMessage(14L,"xyz2",new Date(1394608520000L),"0429c3866c19981fc276855ff3cdaf100e0c9fdb"); // latest for 0429
+        UserMessage userMessage5 = new UserMessage(14L,"xyz9",new Date(1394612791000L),"369d7cf7bd90fac78ef635b188e2a9952d77a8d1");
+        UserMessage userMessage6 = new UserMessage(14L,"xyz7",new Date(1394608513793L),"0429c3866c19981fc276855ff3cdaf100e0c9fdb");
+        UserMessage userMessage7 = new UserMessage(14L,"xyz6",new Date(1394608513793L),"0429c3866c19981fc276855ff3cdaf100e0c9fdb");
+        UserMessage userMessage8 = new UserMessage(14L,"xyz3",new Date(1394622221000L),"369d7cf7bd90fac78ef635b188e2a9952d77a8d1"); // latest for 369
+        UserMessage userMessage9 = new UserMessage(14L,"xyz4",new Date(1394608513793L),"369d7cf7bd90fac78ef635b188e2a9952d77a8d1");
+
+        Session session = sessionFactory.openSession();
+        Transaction tx = session.beginTransaction();
+        session.save(userMessage1);
+        session.save(userMessage2);
+        session.save(userMessage3);
+        session.save(userMessage4);
+        session.save(userMessage5);
+        session.save(userMessage6);
+        session.save(userMessage7);
+        session.save(userMessage8);
+        session.save(userMessage9);
+
+        // example of what the "natural" sql query would look like, where you join to a nested subquery
+//        SQLQuery sqlQuery = session.createSQLQuery("select um.id,um.hnumber,um.message from UserMessage as um " +
+//                " inner join (select id,hnumber,max(timestamp) as max_tstamp from UserMessage where id = 14 group by id,hnumber) as x" +
+//                " on um.id = x.id and um.hnumber = x. hnumber and um.timestamp = x.max_tstamp");
+//        List list = sqlQuery.list();
+//        printScalarResults(list);
+
+        // for all messages
+        // note how the structure of the query is different to the join version.
+        // In the join version, you are joining on three columns - id, hnumber and timestamp.
+        // In the correlated subquery, the outer "where" clause can only be evaluated against a single column - the timestamp,
+        // but the other two columns are matched in the inner query, as part of its "where" clause.
+        System.out.println("Printing results for query against entire table:");
+        Query query = session.createQuery("select um.id,um.hnumber,um.timestamp,um.message from UserMessage as um "
+                + "where um.timestamp in (select max(timestamp) from UserMessage um1 where um1.id=um.id and um1.hnumber=um.hnumber group by id,hnumber)");
+        List list = query.list();
+        printScalarResults(list,true);
+
+        // for a single message
+        System.out.println("Print results for query when you specify id of 14:");
+        query = session.createQuery("select um.id,um.hnumber,um.timestamp,um.message from UserMessage as um "
+                + "where um.timestamp in (select max(timestamp) from UserMessage um1 where um1.id=14 and um1.hnumber=um.hnumber group by id,hnumber)");
+        list = query.list();
+        printScalarResults(list,true);
+
+
+        tx.commit();
+        session.close();
+    }
+
+    @Test
+    public void criteriaWithCorrelatedSubquery() {
+        System.out.println("Now running criteria query with correlated subquery...");
+
+        Order order1 = new Order();
+        order1.setOrderTotal(29.99);
+
+        Order order2 = new Order();
+        order2.setOrderTotal(8.99);
+
+        Order order3 = new Order();
+        order3.setOrderTotal(15.99);
+
+        Session session = sessionFactory.openSession();
+        Transaction tx = session.beginTransaction();
+        session.save(order1);
+        System.out.println("Order id: " + order1.getId());
+        session.save(order2);
+        session.save(order3);
+
+        Customer customer = new Customer();
+        customer.setForename("Hedley");
+        customer.setSurname("Proctor");
+        session.save(customer);
+        order1.setCustomer(customer);
+        order2.setCustomer(customer);
+        order3.setCustomer(customer);
+
+        // correlated subquery
+        DetachedCriteria subquery =
+                DetachedCriteria.forClass(Order.class, "o");
+        subquery.add( Restrictions.eqProperty("o.customer.id", "c.id"))
+                .setProjection( Property.forName("o.id").count() );
+        Criteria criteria = session.createCriteria(Customer.class, "c")
+                .add( Subqueries.lt(2L, subquery) );
+        List resultList = criteria.list();
+
+        // equivalent to the SQL
+        // SQLQuery query = session.createSQLQuery("select id from Customer where 2 < (select count(*) from orders where customer_id = id)");
+        // however, could be written using an explicit inner query, with a join to that e.g.
+        // select id from customer c join on (select customer_id,count(*) as num_orders from orders group by customer_id) co where c.id = co.customer_id and co.num_orders>2
+
+        tx.commit();
+        session.close();
+
+    }
+
+    void printScalarResults(List list) {
+        for (Object o : list) {
+            Object[] asArray = (Object[])o;
+            for (Object item : asArray) {
+                System.out.println(item);
+            }
+        }
+    }
+
+    void printScalarResults(List list, boolean datesAsLong) {
+        for (Object o : list) {
+            Object[] asArray = (Object[])o;
+            for (Object item : asArray) {
+                if (item instanceof Date && datesAsLong) {
+                    System.out.println(((Date)item).getTime());
+                }
+                else {
+                    System.out.println(item);
+                }
+            }
+        }
     }
 }

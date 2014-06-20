@@ -24,6 +24,7 @@
         <mapping class="com.hedleyproctor.domain.Status"/>
         <mapping class="com.hedleyproctor.domain.User"/>
         <mapping class="com.hedleyproctor.domain.UserAccount"/>
+        <mapping class="com.hedleyproctor.domain.UserMessage"/>
 
     </session-factory>
 
