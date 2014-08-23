@@ -25,6 +25,8 @@
         <mapping class="com.hedleyproctor.domain.User"/>
         <mapping class="com.hedleyproctor.domain.UserAccount"/>
         <mapping class="com.hedleyproctor.domain.UserMessage"/>
+        <mapping class="com.hedleyproctor.domain.Apartment"/>
+        <mapping class="com.hedleyproctor.domain.AdditionalSpace"/>
 
     </session-factory>
 

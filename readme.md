@@ -8,6 +8,8 @@ Contains a number of different examples of Hibernate mappings and queries, such 
  * Using the "between" keyword
  * Converting join queries to correlated sub-queries
  * When flushing occurs
+ * Using eager fetch
+ * Using sum in a criteria query
 
 The project is built using Maven, and sets up an HSQLDB to run. Hence, if you have maven installed, to run the examples just type:
 

@@ -9,6 +9,7 @@ import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.ParseException;
@@ -150,7 +151,7 @@ public class Tests {
 //	    MINELEMENT(c), MAXELEMENT(c),
 //	    MININDEX(c), MAXINDEX(c),
 
-    // specifying join conditions in the hql
+    // specifying join conditions in the hql - i.e. running a query across two tables
 
     // elements(), indices()
 
@@ -522,7 +523,7 @@ public class Tests {
         Query query2 = session.createQuery("from Order");
         query2.list();
 
-        assertFalse(session.isDirty(),"Session should have been flushed by the HQL query");
+        assertFalse(session.isDirty(), "Session should have been flushed by the HQL query");
         // rerun the original SQL query
         results1 = query.list();
         printResults(results1);
@@ -534,6 +535,122 @@ public class Tests {
         tx.rollback();
     }
 
+    @Test
+    public void criteriaWithEagerFetch() throws InterruptedException {
+        Session session = sessionFactory.openSession();
+        Transaction tx = session.beginTransaction();
+
+        Customer customer = new Customer();
+        customer.setForename("Hedley");
+        customer.setSurname("Proctor");
+        session.save(customer);
+
+        Order order1 = new Order();
+        order1.setOrderTotal(29.99);
+        order1.setCustomer(customer);
+
+        Order order2 = new Order();
+        order2.setOrderTotal(8.99);
+        order2.setCustomer(customer);
+
+        Order order3 = new Order();
+        order3.setOrderTotal(15.99);
+        order3.setCustomer(customer);
+
+        session.save(order1);
+        session.save(order2);
+        session.save(order3);
+
+        tx.commit();
+        session.close();
+
+        // okay, now try our query
+        session = sessionFactory.openSession();
+        tx = session.beginTransaction();
+
+        Criteria criteria = session.createCriteria(Customer.class);
+        criteria.add(Restrictions.eq("forename","Hedley"));
+        criteria.add(Restrictions.eq("surname","Proctor"));
+        criteria.setFetchMode("orders",FetchMode.JOIN);
+        List results = criteria.list();
+
+        // commit and close the session so that the Customer object in the result is detached
+        tx.commit();
+        session.close();
+        // session is closed so customer object is now detached
+
+        Customer customer1 = (Customer) results.get(0);
+        assertEquals(customer1.getOrders().size(),3);
+    }
+
+
+    @Test
+    public void summingValuesFromAJoinedEntityAndAddingToTheMainEntity() {
+        System.out.println("Calculating area of sold apartments.");
+        Apartment apartment1 = new Apartment();
+        apartment1.setArea(100);
+        apartment1.setSold(new BigDecimal(1));
+
+        Apartment apartment2 = new Apartment();
+        apartment2.setArea(200);
+
+        Session session = sessionFactory.openSession();
+        Transaction tx = session.beginTransaction();
+        session.save(apartment1);
+        session.save(apartment2);
+
+        AdditionalSpace additionalSpace1 = new AdditionalSpace();
+        additionalSpace1.setApartment(apartment1);
+        additionalSpace1.setArea(10);
+        session.save(additionalSpace1);
+
+        AdditionalSpace additionalSpace2 = new AdditionalSpace();
+        additionalSpace2.setApartment(apartment1);
+        additionalSpace2.setArea(10);
+        session.save(additionalSpace2);
+
+        AdditionalSpace additionalSpace3 = new AdditionalSpace();
+        additionalSpace3.setApartment(apartment1);
+        additionalSpace3.setArea(10);
+        session.save(additionalSpace3);
+
+        AdditionalSpace additionalSpace4 = new AdditionalSpace();
+        additionalSpace4.setApartment(apartment2);
+        additionalSpace4.setArea(20);
+        session.save(additionalSpace4);
+
+        AdditionalSpace additionalSpace5 = new AdditionalSpace();
+        additionalSpace5.setApartment(apartment2);
+        additionalSpace5.setArea(20);
+        session.save(additionalSpace5);
+
+        tx.commit();
+
+        tx = session.beginTransaction();
+
+        System.out.println("Running SQL version of query:");
+        Query query = session.createSQLQuery("select max(a.area) + sum(ads.area) from AdditionalSpace as ads join Apartment as a on ads.apartment_id = a.id group by a.id");
+        List results = query.list();
+        printResults(results);
+
+        System.out.println("Running HQL with sum");
+            query = session.createQuery("select ads.apartment.id,max(a.area)+sum(ads.area) from Apartment a join a.additionalSpaces ads group by ads.apartment.id");
+        results = query.list();
+        printResults(results);
+
+        System.out.println("Now running with criteria projection sum");
+        Criteria criteria = session.createCriteria(Apartment.class,"a");
+        criteria.createAlias("additionalSpaces", "ads");
+        criteria.setProjection(Projections.projectionList()
+            .add(Projections.property("area"))
+            .add(Projections.groupProperty("a.id"))
+            .add(Projections.sum("ads.area")));
+        results = criteria.list();
+
+        printResults(results);
+
+        tx.commit();
+    }
 
     void printResults(List list) {
         for (Object o : list) {
