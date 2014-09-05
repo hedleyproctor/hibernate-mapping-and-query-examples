@@ -28,6 +28,13 @@
         <mapping class="com.hedleyproctor.domain.Apartment"/>
         <mapping class="com.hedleyproctor.domain.AdditionalSpace"/>
 
+        <mapping class="com.hedleyproctor.domain.preference.DateETL"/>
+        <mapping class="com.hedleyproctor.domain.preference.Preference"/>
+        <mapping class="com.hedleyproctor.domain.preference.PreferenceDateETL"/>
+        <mapping class="com.hedleyproctor.domain.preference.Corporation"/>
+        <mapping class="com.hedleyproctor.domain.preference.Employee"/>
+
+
     </session-factory>
 
 </hibernate-configuration>
